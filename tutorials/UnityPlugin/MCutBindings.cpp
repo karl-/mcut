@@ -122,7 +122,7 @@ uint32_t CreateFaceSizesArray(size_t indexCount, size_t faceSize, uint32_t** arr
 	return cnt;
 }
 
-McResult Dispatch(MeshCutContext* ctx)
+McResult Dispatch(MeshCutContext* ctx, McFlags flags)
 {
 	if(!ctx->source || !ctx->cut)
 	{
@@ -145,7 +145,7 @@ McResult Dispatch(MeshCutContext* ctx)
 
 	McResult err = mcDispatch(
         ctx->context,
-        MC_DISPATCH_VERTEX_ARRAY_FLOAT,
+        flags,
         src.positions,
         src.indices,
         srcFaceSizes,
