@@ -10,17 +10,14 @@ struct MeshLayout
     uint32_t faceSize;
 };
 
+struct vec3 { float x, y, z; };
+
 struct Mesh
 {
-    float*      positions;
+    vec3*       positions;
     uint32_t*   indices;
     MeshLayout  layout;
-
-    ~Mesh()
-    {
-        delete[] positions;
-        delete[] indices;
-    }
+    ~Mesh();
 };
 
 struct MeshCutContext
@@ -31,11 +28,22 @@ struct MeshCutContext
     ~MeshCutContext();
 };
 
+// mesh bindings
+extern "C" Mesh* CreateMesh();
+extern "C" void DestroyMesh(Mesh* mesh);
+extern "C" void SetFaceSize(Mesh* mesh, int size);
+extern "C" int GetFaceSize(const Mesh* mesh);
+extern "C" void SetPositions(Mesh* mesh, const vec3* positions, int size);
+extern "C" void GetPositions(const Mesh* mesh, vec3* array);
+extern "C" void SetIndices(Mesh* mesh, const int* indices, int size);
+extern "C" void GetIndices(const Mesh* mesh, int* array);
+extern "C" int GetVertexCount(const Mesh* mesh);
+extern "C" int GetIndexCount(const Mesh* mesh);
+
+// McContext bindings
 extern "C" uint32_t CreateContext(MeshCutContext** context);
 extern "C" void DestroyContext(MeshCutContext* ptr);
-extern "C" void SetSourceMesh(MeshCutContext* ctx, const float* positions, int positionsSize, const int* indices, int indicesSize, int faceSize);
-extern "C" void SetCutMesh(MeshCutContext* ctx, float* positions, int positionsSize, int* indices, int indicesSize, int faceSize);
-extern "C" Mesh* GetSourceMesh(MeshCutContext* ctx);
-
-extern "C" MeshLayout GetMeshLayout(Mesh* mesh);
-extern "C" void GetPositions(Mesh* mesh, float* array);
+extern "C" void SetSourceMesh(MeshCutContext* ctx, Mesh* mesh);
+extern "C" void SetCutMesh(MeshCutContext* ctx, Mesh* mesh);
+extern "C" Mesh* GetSourceMesh(const MeshCutContext* ctx);
+extern "C" Mesh* GetCutMesh(const MeshCutContext* ctx);

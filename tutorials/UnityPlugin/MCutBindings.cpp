@@ -3,45 +3,106 @@
 #include "MCutBindings.h"
 #include "mcut/mcut.h"
 
-uint32_t CreateContext(MeshCutContext** ctx) {
-    (*ctx) = new MeshCutContext();
-    (*ctx)->context = MC_NULL_HANDLE;
-    (*ctx)->source = nullptr;
-    (*ctx)->cut = nullptr;
-    return mcCreateContext(&(*ctx)->context, MC_NULL_HANDLE);
-}
-
-MeshCutContext::~MeshCutContext() {
-    mcReleaseContext(context);
-    delete source;
-    delete cut;
-}
-
-void DestroyContext(MeshCutContext* ctx) {
-    delete ctx;
-}
-
-void SetSourceMesh(MeshCutContext* ctx, const float* positions, int positionsSize, const int* indices, int indicesSize, int faceSize)
+Mesh::~Mesh()
 {
-    auto& mesh = *(ctx->source = new Mesh());
-    mesh.indices = new uint32_t [indicesSize];
-    for(int i = 0; i < indicesSize; ++i)
-        mesh.indices[i] = (uint32_t) indices[i];
-    mesh.positions = new float[positionsSize];
-    memcpy(mesh.positions, positions, positionsSize * sizeof(float));
-    mesh.layout = { (uint32_t) positionsSize, (uint32_t) indicesSize, (uint32_t) faceSize };
+	delete[] positions;
+	delete[] indices;
 }
 
-void SetCutMesh(MeshCutContext* ctx, float* positions, uint32_t positionsSize, int* indices, uint32_t indicesSize, int faceSize) {
-    fprintf(stderr, "nope not done yet\n");
-}
-
-Mesh* GetSourceMesh(MeshCutContext* ctx)
+MeshCutContext::~MeshCutContext()
 {
-    return ctx->source;
+	mcReleaseContext(context);
 }
 
-MeshLayout GetMeshLayout(Mesh* mesh)
+Mesh* CreateMesh()
 {
-    return mesh->layout;
+	return new Mesh();
 }
+
+void DestroyMesh(Mesh* mesh)
+{
+	delete mesh;
+}
+
+void SetFaceSize(Mesh* mesh, int size)
+{
+	mesh->layout.faceSize = size;
+}
+
+int GetFaceSize(const Mesh* mesh)
+{
+	return (int)mesh->layout.faceSize;
+}
+
+void SetPositions(Mesh* mesh, const vec3* positions, int size)
+{
+	delete[] mesh->positions;
+	mesh->layout.vertexCount = size;
+	mesh->positions = new vec3[size];
+	memcpy(mesh->positions, positions, size * sizeof(float) * 3);
+}
+
+void GetPositions(const Mesh* mesh, vec3* array)
+{
+	memcpy(array, mesh->positions, sizeof(float) * 3 * mesh->layout.vertexCount);
+}
+
+void SetIndices(Mesh* mesh, const int* indices, int size)
+{
+	delete[] mesh->indices;
+	mesh->indices = new uint32_t[size];
+	mesh->layout.indexCount = size;
+	for (int i = 0; i < size; ++i)
+		mesh->indices[i] = indices[i];
+}
+
+void GetIndices(const Mesh* mesh, int* array)
+{
+	for (int i = 0; i < (int) mesh->layout.indexCount; ++i)
+		array[i] = (int) mesh->indices[i];
+}
+
+int GetVertexCount(const Mesh* mesh)
+{
+	return (int) mesh->layout.vertexCount;
+}
+
+int GetIndexCount(const Mesh* mesh)
+{
+	return (int) mesh->layout.indexCount;
+}
+
+uint32_t CreateContext(MeshCutContext** ctx)
+{
+	(*ctx) = new MeshCutContext();
+	(*ctx)->context = MC_NULL_HANDLE;
+	(*ctx)->source = nullptr;
+	(*ctx)->cut = nullptr;
+	return mcCreateContext(&(*ctx)->context, MC_NULL_HANDLE);
+}
+
+void DestroyContext(MeshCutContext* ctx)
+{
+	delete ctx;
+}
+
+void SetSourceMesh(MeshCutContext* ctx, Mesh* mesh)
+{
+	ctx->source = mesh;
+}
+
+void SetCutMesh(MeshCutContext* ctx, Mesh* mesh)
+{
+	ctx->cut = mesh;
+}
+
+Mesh* GetSourceMesh(const MeshCutContext* ctx)
+{
+	return ctx->source;
+}
+
+Mesh* GetCutMesh(const MeshCutContext* ctx)
+{
+	return ctx->cut;
+}
+
