@@ -34,3 +34,7 @@ site/
 *.exe
 *.out
 *.app
+
+bin/*
+cmake-build-*
+.idea/*

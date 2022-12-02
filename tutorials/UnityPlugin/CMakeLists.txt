@@ -1,0 +1,5 @@
+add_library(MCutBindings SHARED MCutBindings.cpp)
+target_link_libraries(MCutBindings PUBLIC mcut)
+target_include_directories(MCutBindings PUBLIC ${MCUT_INCLUDE_DIR})
+target_compile_options(MCutBindings PRIVATE ${compilation_flags})
+target_compile_definitions(MCutBindings PRIVATE ${preprocessor_defs})
