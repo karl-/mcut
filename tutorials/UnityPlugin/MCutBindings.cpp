@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include "MCutBindings.h"
 #include "mcut/mcut.h"
 
@@ -106,3 +107,58 @@ Mesh* GetCutMesh(const MeshCutContext* ctx)
 	return ctx->cut;
 }
 
+#define INVALID_SIZE std::numeric_limits<uint32_t>::max()
+
+// mcut lib expects that topology is variable per-face, which is not the case in unity meshes
+// todo looks like this can be skipped if topology is triangles
+uint32_t CreateFaceSizesArray(size_t indexCount, size_t faceSize, uint32_t** array)
+{
+	if(indexCount % faceSize != 0)
+		return INVALID_SIZE;
+	size_t cnt = indexCount / faceSize;
+	auto* buffer = (*array) = new uint32_t[cnt];
+	for(size_t i = 0; i < cnt; ++i)
+		buffer[i] = faceSize;
+	return cnt;
+}
+
+McResult Dispatch(MeshCutContext* ctx)
+{
+	if(!ctx->source || !ctx->cut)
+	{
+		fprintf(stderr, "missing mesh, src %p cut %p", ctx->source, ctx->cut);
+		return MC_INVALID_VALUE;
+	}
+
+	const Mesh& src = *ctx->source;
+	const Mesh& cut = *ctx->cut;
+
+	uint32_t *srcFaceSizes, *cutFaceSizes;
+	uint32_t srcFaceSizesCount = CreateFaceSizesArray(src.layout.indexCount, src.layout.faceSize, &srcFaceSizes);
+	uint32_t cutFaceSizesCount = CreateFaceSizesArray(cut.layout.indexCount, cut.layout.faceSize, &cutFaceSizes);
+
+	if(srcFaceSizesCount == INVALID_SIZE || cutFaceSizesCount == INVALID_SIZE)
+	{
+		fprintf(stderr, "srcFaceSizesCount %u curFaceSizesCount %u\n", srcFaceSizesCount, cutFaceSizesCount);
+		return MC_INVALID_VALUE;
+	}
+
+	McResult err = mcDispatch(
+        ctx->context,
+        MC_DISPATCH_VERTEX_ARRAY_FLOAT,
+        src.positions,
+        src.indices,
+        srcFaceSizes,
+        src.layout.vertexCount,
+        srcFaceSizesCount,
+        cut.positions,
+        cut.indices,
+        cutFaceSizes,
+        cut.layout.vertexCount,
+        cutFaceSizesCount);
+
+	delete[] srcFaceSizes;
+	delete[] cutFaceSizes;
+
+	return err;
+}

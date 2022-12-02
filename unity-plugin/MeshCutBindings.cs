@@ -159,6 +159,8 @@ namespace MeshCutBindings
         public static extern IntPtr GetSourceMesh(IntPtr ctx);
         [DllImport("libMCutBindingsd.so")]
         public static extern IntPtr GetCutMesh(IntPtr ctx);
+        [DllImport("libMCutBindingsd.so")]
+        public static extern UInt32 Dispatch(IntPtr ctx);
 
         public IntPtr ptr => m_Ptr;
 
@@ -193,6 +195,8 @@ namespace MeshCutBindings
 
         public Mesh CopyCutMesh() => (Mesh)m_Cut;
 
+        public McResult Dispatch() => (McResult) Dispatch(m_Ptr);
+
         public void Dispose()
         {
             m_Source?.Dispose();
@@ -205,25 +209,48 @@ namespace MeshCutBindings
         }
     }
 
-    static class Test
+    class TestMCut : EditorWindow
     {
-        [MenuItem("Window/Do the cut")]
-        static void init()
-        {
-            var mesh = Selection.GetFiltered<MeshFilter>(SelectionMode.TopLevel).Select(x => x.sharedMesh).FirstOrDefault(y => y != null);
+        [SerializeField]
+        Mesh m_Source, m_Cut;
+        McResult m_Result;
+        
+        [MenuItem("Window/MCUT Window")]
+        static void init() => GetWindow<TestMCut>();
 
-            if (mesh == null)
+        void OnEnable()
+        {
+            var meshes = Selection.GetFiltered<MeshFilter>(SelectionMode.TopLevel).Select(x => x.sharedMesh).Where(x => x != null).ToArray();
+            int i = 0;
+            if (m_Source == null && i < meshes.Length)
+                m_Source = meshes[i++];
+            if (m_Cut == null && i < meshes.Length)
+                m_Cut = meshes[i++];
+        }
+
+        void OnGUI()
+        {
+            m_Source = (Mesh) EditorGUILayout.ObjectField("Source", m_Source, typeof(Mesh), true);
+            m_Cut = (Mesh) EditorGUILayout.ObjectField("Cut", m_Cut, typeof(Mesh), true);
+
+            if (GUILayout.Button("CUT"))
             {
-                Debug.LogError("no mesh selected");
-                return;
+                var context = new MeshCutContext();
+                context.sourceMesh = m_Source;
+                context.cutMesh = m_Cut;
+
+                var src = context.CopySourceMesh();
+                Debug.Log($"src vertex count: {src.vertexCount}");
+                DestroyImmediate(src);
+                var cut = context.CopyCutMesh();
+                Debug.Log($"cut vertex count: {cut.vertexCount}");
+                DestroyImmediate(cut);
+
+                m_Result = context.Dispatch();
+                context.Dispose();
             }
             
-            var context = new MeshCutContext();
-            context.sourceMesh = mesh;
-            var src = context.CopySourceMesh();
-            Debug.Log($"src vertex count: {src.vertexCount}");
-            Object.DestroyImmediate(src);
-            context.Dispose();
+            EditorGUILayout.LabelField("Last Result", $"{m_Result}");
         }
     }
 }

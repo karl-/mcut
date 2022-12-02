@@ -47,3 +47,4 @@ extern "C" void SetSourceMesh(MeshCutContext* ctx, Mesh* mesh);
 extern "C" void SetCutMesh(MeshCutContext* ctx, Mesh* mesh);
 extern "C" Mesh* GetSourceMesh(const MeshCutContext* ctx);
 extern "C" Mesh* GetCutMesh(const MeshCutContext* ctx);
+extern "C" McResult Dispatch(MeshCutContext* ctx);
