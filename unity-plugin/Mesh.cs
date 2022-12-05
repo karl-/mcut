@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.ProBuilder;
+using UnityEngine.ProBuilder.MeshOperations;
 
 namespace MeshCut
 {
@@ -20,10 +24,10 @@ namespace MeshCut
         static extern void DestroyMesh(IntPtr mesh);
 
         [DllImport("libMCutBindingsd.so")]
-        static extern void SetFaceSize(IntPtr mesh, int size);
-
+        static extern unsafe void SetFaces(IntPtr mesh, int* sizes, int size);
+        
         [DllImport("libMCutBindingsd.so")]
-        static extern int GetFaceSize(IntPtr mesh);
+        static extern unsafe void GetFaces(IntPtr mesh, int* array);
 
         [DllImport("libMCutBindingsd.so")]
         static extern unsafe void SetPositions(IntPtr mesh, Vector3* positions, int size);
@@ -42,6 +46,9 @@ namespace MeshCut
 
         [DllImport("libMCutBindingsd.so")]
         static extern int GetIndexCount(IntPtr mesh);
+
+        [DllImport("libMCutBindingsd.so")]
+        static extern int GetFaceCount(IntPtr mesh);
 
         public unsafe Vector3[] positions
         {
@@ -74,17 +81,22 @@ namespace MeshCut
                 return buffer;
             }
         }
-
-        public int faceSize
+    
+        // setting faces is optional - if not set triangles are assumed
+        public unsafe int[] faces
         {
-            get => GetFaceSize(m_Ptr);
-            set => SetFaceSize(m_Ptr, value);
-        }
+            set
+            {
+                fixed (int* ptr = value) SetFaces(m_Ptr, ptr, value.Length);
+            }
 
-        public MeshTopology topology
-        {
-            get => faceSize == 3 ? MeshTopology.Triangles : MeshTopology.Quads;
-            set => faceSize = GetFaceSize(value);
+            get
+            {
+                var buffer = new int[GetFaceCount(m_Ptr)];
+                fixed (int* ptr = buffer)
+                    GetFaces(m_Ptr, ptr);
+                return buffer;
+            }
         }
 
         public MeshPtr()
@@ -97,22 +109,52 @@ namespace MeshCut
             : this()
         {
             positions = mesh.vertices;
-            indices = mesh.GetIndices(0);
-            topology = mesh.GetTopology(0);
+            var faceSize = GetFaceSize(mesh.GetTopology(0));
+            var ind = mesh.GetIndices(0);
+            if (faceSize != 3)
+            {
+                var fs = new int[ind.Length / faceSize];
+                for (int i = 0; i < fs.Length; ++i)
+                    fs[i] = faceSize;
+                faces = fs;
+            }
+            indices = ind;
+            
         }
 
-        public MeshPtr(IntPtr ptr)
+        public MeshPtr(IntPtr ptr, bool ownsNativeMemory = false)
         {
             m_Ptr = ptr;
-            m_OwnsNativeMemory = false;
+            m_OwnsNativeMemory = ownsNativeMemory;
+        }
+
+        // extrapolate polygon fan to triangles
+        static int AppendTriangles(Vector3[] vertices, int[] indices, int offset, int faceSize, List<int> triangles)
+        {
+            var points = new Vector3[faceSize];
+            for (int i = 0; i < faceSize; ++i)
+                points[i] = vertices[indices[offset + i]];
+
+            Triangulation.TriangulateVertices(points, out var tris, false, false);
+            
+            for(int i = 0; i < tris.Count; ++i)
+                triangles.Add(indices[offset + tris[i]]);
+            
+            return faceSize;
         }
 
         public static explicit operator Mesh(MeshPtr ptr)
         {
             var m = new Mesh();
-            m.vertices = ptr.positions;
+            var positions = ptr.positions;
+            m.vertices = positions;
             m.subMeshCount = 1;
-            m.SetIndices(ptr.indices, ptr.topology, 0);
+            var triangles = new List<int>();
+            var indices = ptr.indices;
+            var faces = ptr.faces;
+            for(int f = 0, i = 0, c = faces.Length; f < c; ++f)
+                i += AppendTriangles(positions, indices, i, faces[f], triangles);
+            m.SetIndices(triangles.ToArray(), MeshTopology.Triangles, 0);
             return m;
         }
 

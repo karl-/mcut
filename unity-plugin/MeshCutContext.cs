@@ -3,9 +3,7 @@
 // ReSharper disable StringLiteralTypo
 
 using System;
-using System.Linq;
 using System.Runtime.InteropServices;
-using UnityEditor;
 using UnityEngine;
 
 namespace MeshCut
@@ -29,6 +27,10 @@ namespace MeshCut
         public static extern IntPtr GetCutMesh(IntPtr ctx);
         [DllImport("libMCutBindingsd.so")]
         public static extern UInt32 Dispatch(IntPtr ctx, UInt32 flags);
+        [DllImport("libMCutBindingsd.so")]
+        static extern UInt32 GetResultMeshCount(IntPtr ctx);
+        [DllImport("libMCutBindingsd.so")]
+        static extern McResult CreateMeshFromResult(IntPtr ctx, int index, out IntPtr mesh);
 
         public IntPtr ptr => m_Ptr;
 
@@ -66,6 +68,28 @@ namespace MeshCut
         public McResult Dispatch(McDispatchFlags flags = McDispatchFlags.MC_DISPATCH_VERTEX_ARRAY_FLOAT)
         {
             return (McResult)Dispatch(m_Ptr, (uint)flags);
+        }
+        
+        public int GetResultMeshCount()
+        {
+            return (int) GetResultMeshCount(m_Ptr);
+        }        
+
+        public bool CreateMeshFromResult(int index, out Mesh mesh)
+        {
+            var res = CreateMeshFromResult(m_Ptr, index, out var ptr);
+
+            if (res != McResult.MC_NO_ERROR || ptr == IntPtr.Zero)
+            {
+                Debug.Log($"Failed to create mesh from result {res}");
+                mesh = null;
+                return false;
+            }
+
+            using var mptr = new MeshPtr(ptr, true);
+            mesh = (Mesh)mptr;
+            mptr.Dispose();
+            return true;
         }
 
         public void Dispose()

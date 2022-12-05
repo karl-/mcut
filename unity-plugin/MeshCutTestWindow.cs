@@ -1,6 +1,8 @@
+using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace MeshCut
 {
@@ -11,9 +13,25 @@ namespace MeshCut
         McResult m_Result;
 
         McDispatchFlags m_Flags = McDispatchFlags.MC_DISPATCH_VERTEX_ARRAY_FLOAT
-            | McDispatchFlags.MC_DISPATCH_INCLUDE_VERTEX_MAP
-            | McDispatchFlags.MC_DISPATCH_INCLUDE_FACE_MAP;
+            // | McDispatchFlags.MC_DISPATCH_INCLUDE_VERTEX_MAP
+            // | McDispatchFlags.MC_DISPATCH_INCLUDE_FACE_MAP
+            ;
 
+        static Material s_DefaultMaterial;
+
+        static Material defaultMaterial
+        {
+            get
+            {
+                if (s_DefaultMaterial != null)
+                    return s_DefaultMaterial;
+                var prim = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                s_DefaultMaterial = prim.GetComponent<MeshRenderer>().sharedMaterial;
+                DestroyImmediate(prim);
+                return s_DefaultMaterial;
+            }
+        }
+        
         [MenuItem("Window/MCUT Window")]
         static void init() => GetWindow<TestMCut>();
 
@@ -64,7 +82,10 @@ namespace MeshCut
                         3, 2, 6, 7,
                         4, 5, 1, 0
                     },
-                    topology = MeshTopology.Quads
+                    faces = new int[]
+                    {
+                        4, 4, 4, 4, 4, 4
+                    }
                 };
 
                 using var cut = new MeshPtr()
@@ -80,8 +101,7 @@ namespace MeshCut
                     {
                         0, 1, 2,
                         0, 2, 3
-                    },
-                    topology = MeshTopology.Triangles
+                    }
                 };
                 
                 // important! does not assume ownership
@@ -89,6 +109,19 @@ namespace MeshCut
                 MeshCutContext.SetCutMesh(context.ptr, cut.ptr);
 
                 m_Result = context.Dispatch(m_Flags);
+
+                if (m_Result == McResult.MC_NO_ERROR && context.GetResultMeshCount() > 0)
+                {
+                    for (int i = 0, c = context.GetResultMeshCount(); i < c; ++i)
+                    {
+                        if(!context.CreateMeshFromResult(i, out var mesh))
+                            continue;
+                        var go = new GameObject() { name = $"Cut Mesh {i}" };
+                        go.AddComponent<MeshFilter>().sharedMesh = (Mesh) mesh;
+                        go.AddComponent<MeshRenderer>().sharedMaterial = defaultMaterial;
+                    }
+                }
+                
                 context.Dispose();
             }
 
