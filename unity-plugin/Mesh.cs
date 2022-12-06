@@ -1,14 +1,10 @@
 using System;
-using System.Collections.Generic;
-using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using UnityEngine;
-using UnityEngine.ProBuilder;
-using UnityEngine.ProBuilder.MeshOperations;
 
 namespace MeshCut
 {
-    class MeshPtr : IDisposable
+    public class MeshPtr : IDisposable
     {
         IntPtr m_Ptr;
 
@@ -128,33 +124,14 @@ namespace MeshCut
             m_OwnsNativeMemory = ownsNativeMemory;
         }
 
-        // extrapolate polygon fan to triangles
-        static int AppendTriangles(Vector3[] vertices, int[] indices, int offset, int faceSize, List<int> triangles)
-        {
-            var points = new Vector3[faceSize];
-            for (int i = 0; i < faceSize; ++i)
-                points[i] = vertices[indices[offset + i]];
-
-            Triangulation.TriangulateVertices(points, out var tris, false, false);
-            
-            for(int i = 0; i < tris.Count; ++i)
-                triangles.Add(indices[offset + tris[i]]);
-            
-            return faceSize;
-        }
-
         public static explicit operator Mesh(MeshPtr ptr)
         {
             var m = new Mesh();
-            var positions = ptr.positions;
-            m.vertices = positions;
+            m.vertices = ptr.positions;
             m.subMeshCount = 1;
-            var triangles = new List<int>();
-            var indices = ptr.indices;
-            var faces = ptr.faces;
-            for(int f = 0, i = 0, c = faces.Length; f < c; ++f)
-                i += AppendTriangles(positions, indices, i, faces[f], triangles);
-            m.SetIndices(triangles.ToArray(), MeshTopology.Triangles, 0);
+            // we'll assume that anything coming from unity is uniform topology, and anything returning from mcut has
+            // been triangulated
+            m.SetIndices(ptr.indices, ptr.faces[0] == 3 ? MeshTopology.Triangles : MeshTopology.Quads, 0);
             return m;
         }
 

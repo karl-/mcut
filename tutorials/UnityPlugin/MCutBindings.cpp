@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <cstring>
-#include <limits>
 #include "MCutBindings.h"
 #include "mcut/mcut.h"
 
@@ -18,17 +17,22 @@ Mesh::~Mesh()
     delete[] faceSizes;
 }
 
+MeshCutQuery::MeshCutQuery() : connectedComponentsSize(0), connectedComponents(nullptr)
+{}
+
+MeshCutQuery::~MeshCutQuery()
+{
+    delete[] connectedComponents;
+}
+
 MeshCutContext::MeshCutContext() : context(nullptr),
                                    source(nullptr),
-                                   cut(nullptr),
-                                   connectedComponentsSize(0),
-                                   connectedComponents(nullptr)
+                                   cut(nullptr)
 {
 }
 
 MeshCutContext::~MeshCutContext()
 {
-    delete[] connectedComponents;
     mcReleaseConnectedComponents(context, 0, nullptr);
     mcReleaseContext(context);
 }
@@ -173,33 +177,54 @@ McResult Dispatch(MeshCutContext* ctx, McFlags flags)
         cut.layout.vertexCount,
         cut.layout.faceCount);
 
-    if (err != MC_NO_ERROR)
-        return err;
+    return err;
+}
 
-    err = mcGetConnectedComponents(ctx->context,
-        MC_CONNECTED_COMPONENT_TYPE_FRAGMENT, // MC_CONNECTED_COMPONENT_TYPE_ALL,
+MeshCutQuery* CreateMeshQuery(MeshCutContext* ctx, McConnectedComponentType flags)
+{
+    auto query = new MeshCutQuery();
+    query->context = ctx->context;
+
+    auto err = mcGetConnectedComponents(ctx->context,
+        flags,
         0,
         nullptr,
-        &ctx->connectedComponentsSize);
+        &query->connectedComponentsSize);
 
     if (err != MC_NO_ERROR)
-        return err;
+    {
+        delete query;
+        return nullptr;
+    }
 
-    ctx->connectedComponents = new McConnectedComponent [ctx->connectedComponentsSize];
+    query->connectedComponents = new McConnectedComponent [query->connectedComponentsSize];
 
-    return mcGetConnectedComponents(ctx->context,
-        MC_CONNECTED_COMPONENT_TYPE_FRAGMENT, // MC_CONNECTED_COMPONENT_TYPE_ALL,
-        ctx->connectedComponentsSize,
-        ctx->connectedComponents,
+    err = mcGetConnectedComponents(ctx->context,
+        flags, // MC_CONNECTED_COMPONENT_TYPE_ALL,
+        query->connectedComponentsSize,
+        query->connectedComponents,
         nullptr);
+
+    if(err != MC_NO_ERROR)
+    {
+        delete query;
+        return nullptr;
+    }
+
+    return query;
 }
 
-uint32_t GetResultMeshCount(MeshCutContext* ctx)
+void DestroyMeshQuery(MeshCutQuery* query)
 {
-    return ctx->connectedComponentsSize;
+    delete query;
 }
 
-McResult CreateMeshFromResult(MeshCutContext* ctx, int index, Mesh** mesh)
+uint32_t GetResultMeshCount(const MeshCutQuery* query)
+{
+    return query->connectedComponentsSize;
+}
+
+McResult CreateMeshFromResult(const MeshCutQuery* query, int index, Mesh** mesh)
 {
     char fnameBuf[32];
     sprintf(fnameBuf, "mcut-lib-conncomp%d.off", index);
@@ -219,30 +244,28 @@ McResult CreateMeshFromResult(MeshCutContext* ctx, int index, Mesh** mesh)
         }\
     } while(0);\
 
-    McResult err = index < 0 || (uint32_t)index >= ctx->connectedComponentsSize ? MC_INVALID_VALUE : MC_NO_ERROR;
+    McResult err = index < 0 || (uint32_t)index >= query->connectedComponentsSize ? MC_INVALID_VALUE : MC_NO_ERROR;
     EARLY_EXIT_IF_ERROR(err);
 
-    auto& context = ctx->context;
-    auto& component = ctx->connectedComponents[index];
+    auto& context = query->context;
+    auto& component = query->connectedComponents[index];
 
-    uint64_t vertexDataSize, faceDataSize, faceSizeSize;
+    uint64_t vertexDataSize, faceDataSize;
     EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_VERTEX_FLOAT, 0, nullptr, &vertexDataSize));
-    EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_FACE, 0, nullptr, &faceDataSize));
-    EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_FACE_SIZE, 0, nullptr, &faceSizeSize));
+    EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_FACE_TRIANGULATION, 0, nullptr, &faceDataSize));
 
     auto& m = *(*mesh = new Mesh());
 
     m.layout.vertexCount = vertexDataSize / (sizeof(float) * 3);
     m.layout.indexCount = faceDataSize / sizeof(uint32_t);
-    m.layout.faceCount = faceSizeSize / sizeof(uint32_t);
+    m.layout.faceCount = m.layout.indexCount / 3;
 
     m.positions = new vec3[m.layout.vertexCount];
     m.indices = new uint32_t[m.layout.indexCount];
-    m.faceSizes = new uint32_t [m.layout.faceCount];
+    m.faceSizes = nullptr;
 
     EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_VERTEX_FLOAT, vertexDataSize, (void*) m.positions, nullptr));
-    EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_FACE, faceDataSize, (void*) m.indices, nullptr));
-    EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_FACE_SIZE, faceSizeSize, (void*) m.faceSizes, nullptr));
+    EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_FACE_TRIANGULATION, faceDataSize, (void*) m.indices, nullptr));
 
     writeOFF(fnameBuf, *mesh);
 

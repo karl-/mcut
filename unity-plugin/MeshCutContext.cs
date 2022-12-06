@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace MeshCut
 {
-    class MeshCutContext : IDisposable
+    public class MeshCutContext : IDisposable
     {
         IntPtr m_Ptr;
         MeshPtr m_Source, m_Cut;
@@ -22,15 +22,13 @@ namespace MeshCut
         [DllImport("libMCutBindingsd.so")]
         public static extern void SetCutMesh(IntPtr ctx, IntPtr mesh);
         [DllImport("libMCutBindingsd.so")]
-        public static extern IntPtr GetSourceMesh(IntPtr ctx);
+        static extern IntPtr GetSourceMesh(IntPtr ctx);
         [DllImport("libMCutBindingsd.so")]
-        public static extern IntPtr GetCutMesh(IntPtr ctx);
+        static extern IntPtr GetCutMesh(IntPtr ctx);
         [DllImport("libMCutBindingsd.so")]
         public static extern UInt32 Dispatch(IntPtr ctx, UInt32 flags);
         [DllImport("libMCutBindingsd.so")]
-        static extern UInt32 GetResultMeshCount(IntPtr ctx);
-        [DllImport("libMCutBindingsd.so")]
-        static extern McResult CreateMeshFromResult(IntPtr ctx, int index, out IntPtr mesh);
+        public static extern IntPtr CreateMeshQuery(IntPtr ctx, McConnectedComponentType flags);
 
         public IntPtr ptr => m_Ptr;
 
@@ -51,6 +49,17 @@ namespace MeshCut
             }
         }
 
+        public MeshPtr source
+        {
+            get => new MeshPtr(m_Source.ptr, false);
+
+            set
+            {
+                m_Source?.Dispose();
+                m_Source = value;
+            }
+        }
+
         public Mesh CopySourceMesh() => (Mesh)m_Source;
 
         public Mesh cutMesh
@@ -63,35 +72,34 @@ namespace MeshCut
             }
         }
 
+        public MeshPtr cut
+        {
+            get => new MeshPtr(m_Cut.ptr, false);
+
+            set
+            {
+                m_Cut?.Dispose();
+                m_Cut = value;
+            }
+        }
+
         public Mesh CopyCutMesh() => (Mesh)m_Cut;
 
         public McResult Dispatch(McDispatchFlags flags = McDispatchFlags.MC_DISPATCH_VERTEX_ARRAY_FLOAT)
         {
             return (McResult)Dispatch(m_Ptr, (uint)flags);
         }
-        
-        public int GetResultMeshCount()
-        {
-            return (int) GetResultMeshCount(m_Ptr);
-        }        
 
-        public bool CreateMeshFromResult(int index, out Mesh mesh)
+        public bool TryCreateMeshQuery(McConnectedComponentType flags, out MeshCutQuery query)
         {
-            var res = CreateMeshFromResult(m_Ptr, index, out var ptr);
-
-            if (res != McResult.MC_NO_ERROR || ptr == IntPtr.Zero)
-            {
-                Debug.Log($"Failed to create mesh from result {res}");
-                mesh = null;
+            query = null;
+            var ptr = CreateMeshQuery(m_Ptr, flags);
+            if (ptr == IntPtr.Zero)
                 return false;
-            }
-
-            using var mptr = new MeshPtr(ptr, true);
-            mesh = (Mesh)mptr;
-            mptr.Dispose();
+            query = new MeshCutQuery(ptr);
             return true;
         }
-
+            
         public void Dispose()
         {
             m_Source?.Dispose();

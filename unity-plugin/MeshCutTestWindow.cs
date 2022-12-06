@@ -110,16 +110,19 @@ namespace MeshCut
 
                 m_Result = context.Dispatch(m_Flags);
 
-                if (m_Result == McResult.MC_NO_ERROR && context.GetResultMeshCount() > 0)
+                if (m_Result == McResult.MC_NO_ERROR 
+                    && context.TryCreateMeshQuery(McConnectedComponentType.MC_CONNECTED_COMPONENT_TYPE_FRAGMENT, out var query))
                 {
-                    for (int i = 0, c = context.GetResultMeshCount(); i < c; ++i)
+                    for (int i = 0, c = query.GetResultMeshCount(); i < c; ++i)
                     {
-                        if(!context.CreateMeshFromResult(i, out var mesh))
+                        if(!query.CreateMeshFromResult(i, out var mesh))
                             continue;
                         var go = new GameObject() { name = $"Cut Mesh {i}" };
                         go.AddComponent<MeshFilter>().sharedMesh = (Mesh) mesh;
                         go.AddComponent<MeshRenderer>().sharedMaterial = defaultMaterial;
                     }
+                    
+                    query.Dispose();
                 }
                 
                 context.Dispose();

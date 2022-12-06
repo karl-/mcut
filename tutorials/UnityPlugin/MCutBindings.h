@@ -30,10 +30,15 @@ struct MeshCutContext
     Mesh*       cut;
     MeshCutContext();
     ~MeshCutContext();
+};
 
-  // only valid after dispatch
+struct MeshCutQuery
+{
+  McContext context;
   uint32_t connectedComponentsSize;
   McConnectedComponent* connectedComponents;
+  MeshCutQuery();
+  ~MeshCutQuery();
 };
 
 // mesh bindings
@@ -57,5 +62,7 @@ extern "C" void SetCutMesh(MeshCutContext* ctx, Mesh* mesh);
 extern "C" Mesh* GetSourceMesh(const MeshCutContext* ctx);
 extern "C" Mesh* GetCutMesh(const MeshCutContext* ctx);
 extern "C" McResult Dispatch(MeshCutContext* ctx, McFlags flags);
-extern "C" uint32_t GetResultMeshCount(MeshCutContext* ctx);
-extern "C" McResult CreateMeshFromResult(MeshCutContext* ctx, int index, Mesh** mesh);
+extern "C" MeshCutQuery* CreateMeshQuery(MeshCutContext* ctx, McConnectedComponentType flags);
+extern "C" void DestroyMeshQuery(MeshCutQuery* query);
+extern "C" uint32_t GetResultMeshCount(const MeshCutQuery* ctx);
+extern "C" McResult CreateMeshFromResult(const MeshCutQuery* ctx, int index, Mesh** mesh);

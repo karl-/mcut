@@ -4,7 +4,7 @@ using System;
 
 namespace MeshCut
 {
-    enum McResult
+    public enum McResult
     {
         // The function was successfully executed.
         MC_NO_ERROR = 0, 
@@ -18,7 +18,7 @@ namespace MeshCut
         MC_RESULT_MAX_ENUM = Int32.MaxValue 
     }
 
-    enum McDispatchFlags
+    public enum McDispatchFlags
     {
         // Interpret the input mesh vertices as arrays of 32-bit floating-point numbers
         MC_DISPATCH_VERTEX_ARRAY_FLOAT = (1 << 0),
@@ -89,5 +89,29 @@ namespace MeshCut
         the task of MCUT is not to decide whether the input is in general position but rather to make perturbation
         on the input (if) necessary within the available precision of the computing device. */
         MC_DISPATCH_ENFORCE_GENERAL_POSITION = (1 << 15)
+    }
+
+    public enum McConnectedComponentType : UInt32
+    {
+        // A connected component that originates from the source-mesh. 
+        MC_CONNECTED_COMPONENT_TYPE_FRAGMENT = (1 << 0),
+
+        // A connected component that is originates from the cut-mesh. 
+        MC_CONNECTED_COMPONENT_TYPE_PATCH = (1 << 2),
+
+        // A connected component representing an input mesh (source-mesh or cut-mesh), but with additional vertices and
+        // edges that are introduced as as a result of the cut (i.e. the intersection contour/curve). 
+        MC_CONNECTED_COMPONENT_TYPE_SEAM = (1 << 3),
+
+        // A connected component that is copy of an input mesh (source-mesh or cut-mesh). Such a connected component may
+        // contain new faces and vertices, which will happen if MCUT internally performs polygon partitioning. Polygon
+        // partitioning occurs when an input mesh intersects the other without severing at least one edge. An example is
+        // splitting a tetrahedron (source-mesh) in two parts using one large triangle (cut-mesh): in this case, the
+        // large triangle would be partitioned into two faces to ensure that at least one of this cut-mesh are severed
+        // by the tetrahedron. This is what allows MCUT to reconnect topology after the cut. 
+        MC_CONNECTED_COMPONENT_TYPE_INPUT = (1 << 4),
+
+        // Wildcard (match all) . 
+        MC_CONNECTED_COMPONENT_TYPE_ALL = 0xFFFFFFFF
     }
 }
