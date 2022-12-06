@@ -153,15 +153,15 @@ McResult Dispatch(MeshCutContext* ctx, McFlags flags)
 {
     if (!ctx->source || !ctx->cut)
     {
-        fprintf(stderr, "missing mesh, src %p cut %p", ctx->source, ctx->cut);
+        fprintf(stderr, "[mcut] missing mesh, src %p cut %p", ctx->source, ctx->cut);
         return MC_INVALID_VALUE;
     }
 
     const Mesh& src = *ctx->source;
     const Mesh& cut = *ctx->cut;
 
-    writeOFF("input-src.off", ctx->source);
-    writeOFF("input-cut.off", ctx->cut);
+//    writeOFF("input-src.off", ctx->source);
+//    writeOFF("input-cut.off", ctx->cut);
 
     McResult err = mcDispatch(
         ctx->context,
@@ -232,7 +232,7 @@ McResult CreateMeshFromResult(const MeshCutQuery* query, int index, Mesh** mesh)
 #define EARLY_EXIT_IF_ERROR(err) do {\
         if (err != MC_NO_ERROR)\
         {                            \
-            fprintf(stderr, "%s, %u error %li\n", __FILE__, __LINE__, err); \
+            fprintf(stderr, "[mcut] %s, %u error %li\n", __FILE__, __LINE__, err); \
             FILE *file = fopen(fnameBuf, "w");\
             if(file){\
                 fprintf(file, "error at line %u (%li)", __LINE__, err);\
@@ -267,7 +267,7 @@ McResult CreateMeshFromResult(const MeshCutQuery* query, int index, Mesh** mesh)
     EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_VERTEX_FLOAT, vertexDataSize, (void*) m.positions, nullptr));
     EARLY_EXIT_IF_ERROR(mcGetConnectedComponentData(context, component, MC_CONNECTED_COMPONENT_DATA_FACE_TRIANGULATION, faceDataSize, (void*) m.indices, nullptr));
 
-    writeOFF(fnameBuf, *mesh);
+//    writeOFF(fnameBuf, *mesh);
 
     return err;
 
@@ -287,7 +287,7 @@ void writeOFF(const char *fpath, Mesh* mesh)
 
     if (file == NULL)
     {
-        fprintf(stderr, "error: failed to open `%s`\n", fpath);
+        fprintf(stderr, "[mcut] error: failed to open `%s`\n", fpath);
         return;
     }
 

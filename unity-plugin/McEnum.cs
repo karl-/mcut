@@ -4,6 +4,7 @@ using System;
 
 namespace MeshCut
 {
+    [Flags]
     public enum McResult
     {
         // The function was successfully executed.
@@ -18,7 +19,8 @@ namespace MeshCut
         MC_RESULT_MAX_ENUM = Int32.MaxValue 
     }
 
-    public enum McDispatchFlags
+    [Flags]
+    public enum McDispatchFlags : UInt32
     {
         // Interpret the input mesh vertices as arrays of 32-bit floating-point numbers
         MC_DISPATCH_VERTEX_ARRAY_FLOAT = (1 << 0),
@@ -91,6 +93,7 @@ namespace MeshCut
         MC_DISPATCH_ENFORCE_GENERAL_POSITION = (1 << 15)
     }
 
+    [Flags]
     public enum McConnectedComponentType : UInt32
     {
         // A connected component that originates from the source-mesh. 
@@ -113,5 +116,13 @@ namespace MeshCut
 
         // Wildcard (match all) . 
         MC_CONNECTED_COMPONENT_TYPE_ALL = 0xFFFFFFFF
+    }
+
+    public enum BooleanOp : UInt32
+    {
+        A_NOT_B = McDispatchFlags.MC_DISPATCH_FILTER_FRAGMENT_SEALING_INSIDE | McDispatchFlags.MC_DISPATCH_FILTER_FRAGMENT_LOCATION_ABOVE,
+        B_NOT_A = McDispatchFlags.MC_DISPATCH_FILTER_FRAGMENT_SEALING_OUTSIDE | McDispatchFlags.MC_DISPATCH_FILTER_FRAGMENT_LOCATION_BELOW,
+        UNION = McDispatchFlags.MC_DISPATCH_FILTER_FRAGMENT_SEALING_OUTSIDE | McDispatchFlags.MC_DISPATCH_FILTER_FRAGMENT_LOCATION_ABOVE,
+        INTERSECTION = McDispatchFlags.MC_DISPATCH_FILTER_FRAGMENT_SEALING_INSIDE | McDispatchFlags.MC_DISPATCH_FILTER_FRAGMENT_LOCATION_BELOW
     }
 }

@@ -57,6 +57,7 @@ namespace MeshCut
             {
                 m_Source?.Dispose();
                 m_Source = value;
+                SetSourceMesh(m_Ptr, m_Source.ptr);
             }
         }
 
@@ -80,6 +81,7 @@ namespace MeshCut
             {
                 m_Cut?.Dispose();
                 m_Cut = value;
+                SetCutMesh(m_Ptr, m_Cut.ptr);
             }
         }
 
